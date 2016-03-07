@@ -2,19 +2,20 @@
 
 CC=gcc
 CFLAGS=-c -Wall
+LDFLAGS=-Wall
 
 all: receiver sender
 
 receiver: receiver.o
-	$(CC) receiver.o -o receiver
+	$(CC) $(LDFLAGS) receiver.o -o receiver
 
-receiver.o: receiver.c
+receiver.o: receiver.c structs.h
 	$(CC) $(CFLAGS) receiver.c
 
 sender: sender.o
-	$(CC) sender.o -o sender
+	$(CC) $(LDFLAGS) sender.o -o sender
 
-sender.o: sender.c
+sender.o: sender.c structs.h
 	$(CC) $(CFLAGS) sender.c
   
 clean:

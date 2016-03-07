@@ -11,6 +11,8 @@
 #include <strings.h>
 #include <sys/wait.h>	/* for the waitpid() system call */
 #include <signal.h>	/* signal name macros, and the kill() prototype */
+#include <string.h>
+#include <unistd.h>
 
 
 void error(char *msg)
@@ -21,9 +23,8 @@ void error(char *msg)
 
 int main(int argc, char *argv[])
 {
-     int sockfd, newsockfd, portno, pid;
-     socklen_t clilen;
-     struct sockaddr_in serv_addr, cli_addr;
+     int sockfd, portno;
+     struct sockaddr_in serv_addr;
 
      if (argc < 2) {
          fprintf(stderr,"ERROR, no port provided\n");
@@ -45,36 +46,17 @@ int main(int argc, char *argv[])
      
    	 char buffer[256];
    	 memset(buffer, 0, 256);	//reset memory
+     struct sockaddr_in client;
 
-     recv(sockfd, buffer, sizeof(buffer), 0);
+     int client_len = sizeof(client);
+     //recv(sockfd, buffer, sizeof(buffer), 0);
+     recvfrom(sockfd, buffer, sizeof(buffer), 0, (struct sockaddr *)&client, (socklen_t *) &client_len);
    	 printf("Here is the message: %s\n",buffer);
 
-     /*
-     listen(sockfd,5);	//5 simultaneous connection at most
-     
-     //accept connections
-     newsockfd = accept(sockfd, (struct sockaddr *) &cli_addr, &clilen);
-         
-     if (newsockfd < 0) 
-       error("ERROR on accept");
-         
-     int n;
-   	 char buffer[256];
-   			 
-   	 memset(buffer, 0, 256);	//reset memory
-      
- 		 //read client's message
-   	 n = read(newsockfd,buffer,255);
-   	 if (n < 0) error("ERROR reading from socket");
-   	 printf("Here is the message: %s\n",buffer);
-   	 
-   	 //reply to client
-   	 n = write(newsockfd,"I got your message",18);
-   	 if (n < 0) error("ERROR writing to socket");
-         
-     
-     close(newsockfd);//close connection 
-     */
+     memset(buffer, 0, 256);
+     buffer[0] = 'm';
+
+     sendto(sockfd, buffer, strlen(buffer) + 1, 0, (struct sockaddr *) &client, sizeof(client));
      close(sockfd);
          
      return 0; 
