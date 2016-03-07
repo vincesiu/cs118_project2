@@ -15,15 +15,107 @@
 
 #define DEBUG_RECEIVE 0
 
-typedef struct frame_node {
-    char* data; // header + data, cannot exceed PACKET_SIZE
-    int len; // length of JUST DATA
+typedef struct frame_node_sender {
+    char data[PACKET_SIZE - 100]; // header + data, cannot exceed PACKET_SIZE
     int seq_no; // in bytes, cannot exceed MAX_SEQ_NO
-    int ack;  // 0 if ack not yet sent/received, 1 if ack sent/received
-    int corrupt; // 0 if normal, 1 if corrupt
-    int lost; // 0 if normal, 1 if lost
-    struct timeval timeSent;    
+    int len;
+    int ready;
+    int sent;
+    int ack;  // 0 if ack not yet received, 1 if ack received
+    struct frame_node_sender * next;
 } Frame;
+
+Frame* update_window(Frame* window, FILE* fd, int nframes, int filelen)
+{
+    int replacecount;
+    int framesize = PACKET_SIZE - 100;
+    Frame* it;
+    Frame* new_window = window;
+    int i;
+    int start = 0; // Start is computed below
+
+    if (window == NULL)
+        replacecount = nframes;
+    else
+        replacecount = 0;
+
+    // deal with ACK'd frames, FREE them
+    // will not run if window is NULL (first run)
+    while (new_window != NULL)
+    {
+        if (new_window->ack == 1)
+        {
+            it = new_window;
+            new_window = it->next;
+            free(it);
+            replacecount++;
+        }
+        else
+            break;
+    }
+
+    // if we need to completely redraw the window
+    // either on first run, or if all sent frames in window were ACK'd
+    if (new_window == NULL)
+    {
+        new_window = calloc(1, sizeof(Frame));
+        it = new_window;
+    }
+    else
+    {
+        it = new_window;
+        while (it->next != NULL)
+            it = it->next;
+        start = it->seq_no + framesize;
+        it->next = calloc(1, sizeof(Frame));
+        it = it->next;
+    }
+    
+
+    // allocate and fill new frames
+    for (i = 0; i < replacecount; i++)
+    {
+        size_t len;
+        it->seq_no = start + i*framesize;
+        if ((it->seq_no + framesize) < filelen)
+            len = fread(it->data, sizeof(it->data), 1, fd);
+        else
+        {
+            len = filelen - it->seq_no;
+            fread(it->data, len, 1, fd);
+        }
+        
+        it->len = sizeof(it->data); // NOPE
+        it->ready = 1;
+
+        if (feof(fd))
+        {
+            it->next = NULL;
+            it->len = len;
+            break;
+        }
+        if (i < replacecount - 1)
+        {
+            it->next = calloc(1, sizeof(Frame));
+            it = it->next;
+        }
+        
+    }
+
+    return new_window;
+}
+
+void free_window(Frame* window)
+{
+    if (window == NULL)
+        return;
+    else
+    {
+        free_window(window->next);
+        free(window);
+    }
+}
+
 
 
 typedef struct socket_info {
@@ -33,7 +125,6 @@ typedef struct socket_info {
     struct sockaddr_in sender;
     socklen_t len;
 } socket_info_st;
-
 
 void my_err(char *msg) {
     fprintf(stderr, "ERROR: %s\n", msg);
@@ -81,9 +172,6 @@ socket_info_st *init_socket(int portno, char *hostname, int who) {
     return ret;
 }
 
-
-
-
 void socket_recv(socket_info_st *s, char *buffer, int len) {
 
     memset(buffer, 0, len);
@@ -99,10 +187,6 @@ void socket_recv(socket_info_st *s, char *buffer, int len) {
     if (DEBUG_RECEIVE)
         printf("end recv\n");
 }
-
-
-
-
 
 void socket_send(socket_info_st *s, char *buffer, int len) {
     if (s->who == 1) 

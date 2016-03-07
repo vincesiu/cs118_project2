@@ -38,22 +38,22 @@ int main(int argc, char *argv[])
     socket_info_st *s = init_socket(atoi(argv[2]), argv[1], 0);
      
 
-    printf("Please enter the hello message: ");
-    memset(buffer,0, len);
-    fgets(buffer,len,stdin);	//read message
+    while (1) {
+        printf("Please enter the desired filename: ");
+        memset(buffer,0, len);
+        fgets(buffer,len,stdin);	//read message
 
-    socket_send(s, buffer, strlen(buffer));
-    
+        socket_send(s, buffer, strlen(buffer));
+        
+        socket_recv(s, buffer, len);
+        printf("I got this data: %s\n", buffer);
+    }
 
-    socket_recv(s, buffer, len);
-    printf("I got this data: %s\n", buffer);
-
-
-    memset(buffer,0, len);
-    buffer[0] = 'a';
-    buffer[1] = 'c';
-    buffer[2] = 'k';
-    socket_send(s, buffer, strlen(buffer));
+    // memset(buffer,0, len);
+    // buffer[0] = 'a';
+    // buffer[1] = 'c';
+    // buffer[2] = 'k';
+    // socket_send(s, buffer, strlen(buffer));
 
     free_socket(s);
 

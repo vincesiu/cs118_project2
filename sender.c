@@ -36,21 +36,34 @@ int main(int argc, char *argv[])
      socket_info_st *s = init_socket(atoi(argv[1]), 0, 1);
      
      socket_recv(s, buffer, len);
-   	 printf("Received hello message : %s\n",buffer);
+     FILE* fp = fopen(buffer,"r")
 
-     memset(buffer, 0, len);
-     buffer[0] = 'd';
-     buffer[1] = 'a';
-     buffer[2] = 'a';
-     buffer[3] = 'g';
-     socket_send(s, buffer, strlen(buffer));
+     while (fp == NULL)
+     {
+        buffer = "ERROR: File not found.\n";
+        socket_send(s, buffer, strlen(buffer));
+
+        memset(buffer, 0, len);
+        socket_recv(s, buffer, len);
+        FILE* fp = fopen(buffer,"r")
+     }
+
+   	 printf("Sucessfully opened the requested file: %s\n", buffer);
+
+     // memset(buffer, 0, len);
+     // buffer[0] = 'd';
+     // buffer[1] = 'a';
+     // buffer[2] = 'a';
+     // buffer[3] = 'g';
+     // socket_send(s, buffer, strlen(buffer));
 
 
      
-     socket_recv(s, buffer, len);
-   	 printf("Here is my ack: %s\n",buffer);
+     // socket_recv(s, buffer, len);
+   	 // printf("Here is my ack: %s\n",buffer);
 
      
+
      free_socket(s); 
          
      return 0; 
