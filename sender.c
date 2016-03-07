@@ -52,6 +52,7 @@ int main(int argc, char *argv[])
 
     printf("Sucessfully opened the requested file: %s\n", buffer);
 
+    send_file(s, fp);
     // memset(buffer, 0, len);
     // buffer[0] = 'd';
     // buffer[1] = 'a';

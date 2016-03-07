@@ -23,7 +23,7 @@ void error(char *msg)
 
 int main(int argc, char *argv[])
 {
-    int len = 200;
+    int len = 1000;
     char *buffer = malloc(sizeof(char)*len);
   /*
   int len = 255;
@@ -37,16 +37,14 @@ int main(int argc, char *argv[])
     
     socket_info_st *s = init_socket(atoi(argv[2]), argv[1], 0);
      
-
+    printf("Please enter the desired filename: ");
+    memset(buffer,0, len);
+    fgets(buffer,len,stdin);  //read message
+    socket_send(s, buffer, strlen(buffer));
+    
     while (1) {
-        printf("Please enter the desired filename: ");
-        memset(buffer,0, len);
-        fgets(buffer,len,stdin);	//read message
-
-        socket_send(s, buffer, strlen(buffer));
-        
         socket_recv(s, buffer, len);
-        printf("I got this data: %s\n", buffer);
+        printf("%s\n", buffer);
     }
 
     // memset(buffer,0, len);
