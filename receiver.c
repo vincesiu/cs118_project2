@@ -31,7 +31,7 @@ int main(int argc, char *argv[])
     }
     
     portno = atoi(argv[2]);
-    sockfd = socket(AF_INET, SOCK_STREAM, 0); //create a new socket
+    sockfd = socket(AF_INET, SOCK_DGRAM, 0); //create a new socket
     if (sockfd < 0) 
         error("ERROR opening socket");
     
@@ -46,23 +46,29 @@ int main(int argc, char *argv[])
     bcopy((char *)server->h_addr, (char *)&serv_addr.sin_addr.s_addr, server->h_length);
     serv_addr.sin_port = htons(portno);
     
+    /*
     if (connect(sockfd,(struct sockaddr *)&serv_addr,sizeof(serv_addr)) < 0) //establish a connection to the server
         error("ERROR connecting");
-    
+        */
+     
     printf("Please enter the message: ");
     memset(buffer,0, 256);
     fgets(buffer,255,stdin);	//read message
+    sendto(sockfd, buffer, strlen(buffer) + 1, 0, &serv_addr, sizeof(serv_addr));
     
+    /*
     n = write(sockfd,buffer,strlen(buffer)); //write to the socket
     if (n < 0) 
          error("ERROR writing to socket");
     
     memset(buffer,0,256);
+    
     n = read(sockfd,buffer,255); //read from the socket
     if (n < 0) 
          error("ERROR reading from socket");
     printf("%s\n",buffer);	//print server's response
     
+    */
     close(sockfd); //close socket
     
     return 0;

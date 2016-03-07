@@ -29,7 +29,7 @@ int main(int argc, char *argv[])
          fprintf(stderr,"ERROR, no port provided\n");
          exit(1);
      }
-     sockfd = socket(AF_INET, SOCK_STREAM, 0);	//create socket
+     sockfd = socket(AF_INET, SOCK_DGRAM, 0);	//create socket
      if (sockfd < 0) 
         error("ERROR opening socket");
      memset((char *) &serv_addr, 0, sizeof(serv_addr));	//reset memory
@@ -43,6 +43,13 @@ int main(int argc, char *argv[])
               sizeof(serv_addr)) < 0) 
               error("ERROR on binding");
      
+   	 char buffer[256];
+   	 memset(buffer, 0, 256);	//reset memory
+
+     recv(sockfd, buffer, sizeof(buffer), 0);
+   	 printf("Here is the message: %s\n",buffer);
+
+     /*
      listen(sockfd,5);	//5 simultaneous connection at most
      
      //accept connections
@@ -67,6 +74,7 @@ int main(int argc, char *argv[])
          
      
      close(newsockfd);//close connection 
+     */
      close(sockfd);
          
      return 0; 
