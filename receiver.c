@@ -13,6 +13,8 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "structs.h"
+
 void error(char *msg)
 {
     perror(msg);
@@ -32,6 +34,7 @@ int main(int argc, char *argv[])
        exit(0);
     }
     
+   // socket_info_st *s = init_socket(atoi(argv[2]), argv[1], 0);
     portno = atoi(argv[2]);
     sockfd = socket(AF_INET, SOCK_DGRAM, 0); //create a new socket
     if (sockfd < 0) 
@@ -47,17 +50,19 @@ int main(int argc, char *argv[])
     serv_addr.sin_family = AF_INET; //initialize server's address
     bcopy((char *)server->h_addr, (char *)&serv_addr.sin_addr.s_addr, server->h_length);
     serv_addr.sin_port = htons(portno);
+    
      
     printf("Please enter the message: ");
     memset(buffer,0, 256);
     fgets(buffer,255,stdin);	//read message
-    int server_len = sizeof(serv_addr);
 
+    //socket_send(s, buffer);
     sendto(sockfd, buffer, strlen(buffer) + 1, 0, (struct sockaddr *) &serv_addr, (socklen_t) sizeof(serv_addr));
     
     
     memset(buffer,0,256);
     
+    int server_len = sizeof(serv_addr);
     recvfrom(sockfd, buffer, sizeof(buffer), 0, (struct sockaddr *) &serv_addr,  (socklen_t *) &server_len);
 
     printf("I got this response: %s\n", buffer);

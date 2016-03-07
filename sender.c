@@ -14,50 +14,35 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "structs.h"
 
-void error(char *msg)
+void err(char *msg)
 {
-    perror(msg);
+    fprintf(stderr, "ERROR: %s\n", msg);
     exit(1);
 }
 
 int main(int argc, char *argv[])
 {
-     int sockfd, portno;
-     struct sockaddr_in serv_addr;
-
-     if (argc < 2) {
-         fprintf(stderr,"ERROR, no port provided\n");
-         exit(1);
-     }
-     sockfd = socket(AF_INET, SOCK_DGRAM, 0);	//create socket
-     if (sockfd < 0) 
-        error("ERROR opening socket");
-     memset((char *) &serv_addr, 0, sizeof(serv_addr));	//reset memory
-     //fill in address info
-     portno = atoi(argv[1]);
-     serv_addr.sin_family = AF_INET;
-     serv_addr.sin_addr.s_addr = INADDR_ANY;
-     serv_addr.sin_port = htons(portno);
-     
-     if (bind(sockfd, (struct sockaddr *) &serv_addr,
-              sizeof(serv_addr)) < 0) 
-              error("ERROR on binding");
-     
    	 char buffer[256];
-   	 memset(buffer, 0, 256);	//reset memory
-     struct sockaddr_in client;
+    // char *buffer = malloc(sizeof(char) * 256);
 
-     int client_len = sizeof(client);
-     //recv(sockfd, buffer, sizeof(buffer), 0);
-     recvfrom(sockfd, buffer, sizeof(buffer), 0, (struct sockaddr *)&client, (socklen_t *) &client_len);
+     if (argc < 2) 
+         err("no port provided");
+
+     socket_info_st *s = init_socket(atoi(argv[1]), 0, 1);
+     
+   	 memset(buffer, 0, 256);	//reset memory
+     buffer[0] = 'a';
+
+     socket_recv(s, buffer);
    	 printf("Here is the message: %s\n",buffer);
 
      memset(buffer, 0, 256);
      buffer[0] = 'm';
 
-     sendto(sockfd, buffer, strlen(buffer) + 1, 0, (struct sockaddr *) &client, sizeof(client));
-     close(sockfd);
+     socket_send(s, buffer);
+     free_socket(s); 
          
      return 0; 
 }
