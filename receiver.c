@@ -1,8 +1,6 @@
+/*  A simple client in the internet domain using UDP
+    Usage: ./client hostname port (./client 192.168.0.151 10000) */
 
-/*
- A simple client in the internet domain using TCP
- Usage: ./client hostname port (./client 192.168.0.151 10000)
- */
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -25,14 +23,14 @@ int main(int argc, char *argv[])
 {
     int len = 1000;
     char *buffer = malloc(sizeof(char)*len);
-  /*
-  int len = 255;
-  char buffer[256];
-  */
+    /*
+    int len = 255;
+    char buffer[256];
+    */
 
     if (argc < 3) {
-       fprintf(stderr,"usage %s hostname port\n", argv[0]);
-       exit(0);
+        fprintf(stderr,"usage %s hostname port\n", argv[0]);
+        exit(0);
     }
     
     socket_info_st *s = init_socket(atoi(argv[2]), argv[1], 0);

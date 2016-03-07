@@ -1,8 +1,6 @@
-/* A simple server in the internet domain using TCP
-    The port number is passed as an argument 
-    This version runs forever, forking off a separate 
-    process for each connection
-*/
+/*  A simple server in the internet domain using UDP
+    The port number is passed as an argument */
+
 #include <stdio.h>
 #include <sys/types.h>   // definitions of a number of data types used in socket.h and netinet/in.h
 #include <sys/socket.h>  // definitions of structures needed for sockets, e.g. sockaddr
