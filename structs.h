@@ -12,6 +12,9 @@
 #define MAX_SEQ_NO  30000
 #define TIMEOUT     3000   // in ms
 
+
+#define DEBUG_RECEIVE 0
+
 typedef struct frame_node {
     char* data; // header + data, cannot exceed PACKET_SIZE
     int len; // length of JUST DATA
@@ -65,10 +68,10 @@ socket_info_st *init_socket(int portno, char *hostname, int who) {
         struct hostent *server = gethostbyname(hostname);
         if (server == NULL)
             my_err("no such host");
-        memset((char *) &ret->receiver, 0, sizeof(ret->receiver));
-        ret->receiver.sin_family = AF_INET;
-        ret->receiver.sin_port = htons(portno);
-        bcopy((char *)server->h_addr, (char *)&ret->receiver.sin_addr.s_addr, server->h_length);
+        memset((char *) &ret->sender, 0, sizeof(ret->sender));
+        ret->sender.sin_family = AF_INET;
+        ret->sender.sin_port = htons(portno);
+        bcopy((char *)server->h_addr, (char *)&ret->sender.sin_addr.s_addr, server->h_length);
         
     }
     else {
@@ -78,19 +81,30 @@ socket_info_st *init_socket(int portno, char *hostname, int who) {
     return ret;
 }
 
+
+
+
 //please remember to memset the buffer
-void socket_recv(socket_info_st *s, char *buffer) {
+void socket_recv(socket_info_st *s, char *buffer, int len) {
+    if (DEBUG_RECEIVE)
+        printf("start recv\n");
     if (s->who == 1) 
-        recvfrom(s->sockfd, buffer, sizeof(buffer), 0, (struct sockaddr *) &(s->receiver), &(s->len));
+        recvfrom(s->sockfd, buffer, len, 0, (struct sockaddr *) &(s->receiver), &(s->len));
     else
-        recvfrom(s->sockfd, buffer, sizeof(buffer), 0, (struct sockaddr *) &(s->sender), &(s->len));
+        recvfrom(s->sockfd, buffer, len, 0, (struct sockaddr *) &(s->sender), &(s->len));
+    if (DEBUG_RECEIVE)
+        printf("end recv\n");
 }
 
-void socket_send(socket_info_st *s, char *buffer) {
+
+
+
+
+void socket_send(socket_info_st *s, char *buffer, int len) {
     if (s->who == 1) 
-        sendto(s->sockfd, buffer, strlen(buffer) + 1, 0, (struct sockaddr *) &(s->receiver), s->len);
+        sendto(s->sockfd, buffer, len, 0, (struct sockaddr *) &(s->receiver), s->len);
     else
-        sendto(s->sockfd, buffer, strlen(buffer) + 1, 0, (struct sockaddr *) &(s->sender), s->len);
+        sendto(s->sockfd, buffer, len, 0, (struct sockaddr *) &(s->sender), s->len);
 }
 
 void free_socket(socket_info_st *s) {

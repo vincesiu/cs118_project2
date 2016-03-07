@@ -1,8 +1,8 @@
 
 
 CC=gcc
-CFLAGS=-c -Wall
-LDFLAGS=-Wall
+CFLAGS=-g -c -Wall
+LDFLAGS=-g -Wall
 
 all: receiver sender
 

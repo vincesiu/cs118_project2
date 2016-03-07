@@ -24,24 +24,35 @@ void err(char *msg)
 
 int main(int argc, char *argv[])
 {
-   	 char buffer[256];
-    // char *buffer = malloc(sizeof(char) * 256);
+     //int len = 200;
+   	 //char *buffer = malloc(sizeof(char) * (len + 1));
+     int len = 255;
+     char buffer[256];
+
 
      if (argc < 2) 
          err("no port provided");
 
      socket_info_st *s = init_socket(atoi(argv[1]), 0, 1);
      
-   	 memset(buffer, 0, 256);	//reset memory
-     buffer[0] = 'a';
+   	 memset(buffer, 0, len);	//reset memory
+     socket_recv(s, buffer, len);
+   	 printf("Received hello message : %s\n",buffer);
 
-     socket_recv(s, buffer);
-   	 printf("Here is the message: %s\n",buffer);
+     memset(buffer, 0, len);
+     buffer[0] = 'd';
+     buffer[1] = 'a';
+     buffer[2] = 'a';
+     buffer[3] = 'g';
+     socket_send(s, buffer, strlen(buffer));
 
-     memset(buffer, 0, 256);
-     buffer[0] = 'm';
 
-     socket_send(s, buffer);
+     
+     memset(buffer, 0, len);
+     socket_recv(s, buffer, len);
+   	 printf("Here is my ack: %s\n",buffer);
+
+     
      free_socket(s); 
          
      return 0; 

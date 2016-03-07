@@ -23,50 +23,38 @@ void error(char *msg)
 
 int main(int argc, char *argv[])
 {
-    int sockfd; //Socket descriptor
-    int portno;
-    struct sockaddr_in serv_addr;
-    struct hostent *server; //contains tons of information, including the server's IP address
-    char buffer[256];
+  /*
+    int len = 200;
+    char *buffer = malloc(sizeof(char)*len);
+    */
+  int len = 255;
+  char buffer[256];
 
     if (argc < 3) {
        fprintf(stderr,"usage %s hostname port\n", argv[0]);
        exit(0);
     }
     
-   // socket_info_st *s = init_socket(atoi(argv[2]), argv[1], 0);
-    portno = atoi(argv[2]);
-    sockfd = socket(AF_INET, SOCK_DGRAM, 0); //create a new socket
-    if (sockfd < 0) 
-        error("ERROR opening socket");
-    
-    server = gethostbyname(argv[1]); //takes a string like "www.yahoo.com", and returns a struct hostent which contains information, as IP address, address type, the length of the addresses...
-    if (server == NULL) {
-        fprintf(stderr,"ERROR, no such host\n");
-        exit(0);
-    }
-    
-    memset((char *) &serv_addr, 0, sizeof(serv_addr));
-    serv_addr.sin_family = AF_INET; //initialize server's address
-    bcopy((char *)server->h_addr, (char *)&serv_addr.sin_addr.s_addr, server->h_length);
-    serv_addr.sin_port = htons(portno);
-    
+    socket_info_st *s = init_socket(atoi(argv[2]), argv[1], 0);
      
-    printf("Please enter the message: ");
-    memset(buffer,0, 256);
-    fgets(buffer,255,stdin);	//read message
 
-    //socket_send(s, buffer);
-    sendto(sockfd, buffer, strlen(buffer) + 1, 0, (struct sockaddr *) &serv_addr, (socklen_t) sizeof(serv_addr));
+    printf("Please enter the hello message: ");
+    memset(buffer,0, len);
+    fgets(buffer,len,stdin);	//read message
+    socket_send(s, buffer, strlen(buffer));
     
-    
-    memset(buffer,0,256);
-    
-    int server_len = sizeof(serv_addr);
-    recvfrom(sockfd, buffer, sizeof(buffer), 0, (struct sockaddr *) &serv_addr,  (socklen_t *) &server_len);
 
-    printf("I got this response: %s\n", buffer);
-    close(sockfd); //close socket
-    
+    memset(buffer,0,len);
+    socket_recv(s, buffer, len);
+    printf("I got this data: %s\n", buffer);
+
+    memset(buffer,0, len);
+    buffer[0] = 'a';
+    buffer[1] = 'c';
+    buffer[2] = 'k';
+    socket_send(s, buffer, strlen(buffer));
+
+    free_socket(s);
+
     return 0;
 }
