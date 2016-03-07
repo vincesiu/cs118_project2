@@ -6,7 +6,6 @@
 #include <stdlib.h>
 #include <strings.h>
 
-
 #define PACKET_SIZE 1000
 #define WINDOW_SIZE 5000
 #define MAX_SEQ_NO  30000
@@ -128,6 +127,7 @@ Frame* update_window(Frame* window, FILE* fd, int nframes, int filelen)
         {
             it = new_window;
             new_window = it->next;
+            start = it->seq_no + framesize;
             free(it);
             replacecount++;
         }
@@ -151,6 +151,7 @@ Frame* update_window(Frame* window, FILE* fd, int nframes, int filelen)
         it->next = calloc(1, sizeof(Frame));
         it = it->next;
     }
+    // if there is nothing in the window to replace
     else
     {
         return window;
@@ -162,16 +163,18 @@ Frame* update_window(Frame* window, FILE* fd, int nframes, int filelen)
         size_t len;
         it->seq_no = start + i*framesize;
         if ((it->seq_no + framesize) < filelen)
-            len = fread(it->data, sizeof(it->data), 1, fd);
+        {
+            len = framesize;
+            fread(it->data, sizeof(it->data), 1, fd);
+        }
         else
         {
             len = filelen - it->seq_no;
             fread(it->data, len, 1, fd);
         }
-        
-        it->len = sizeof(it->data);
+        it->len = len;
 
-        if (feof(fd))
+        if (len < framesize)
         {
             it->next = NULL;
             it->len = len;
@@ -209,7 +212,9 @@ int send_window(socket_info_st *s, Frame* window)
         if (window->ack == 0) {
             // header: SEND <seq_no> <len>
             sprintf(packet, "SEND %d %d\n", window->seq_no, window->len);
+            printf("SEND %d %d\n", window->seq_no, window->len);
             strcat(packet, window->data);
+
             socket_send(s, packet, PACKET_SIZE);
             window->sent = 1;
             memset(packet, 0, PACKET_SIZE);
@@ -223,25 +228,33 @@ void ack_all(Frame* window) {
     {
         ack_all(window->next);
         window->ack = 1;
+	window = window->next;
     }
 }
 
 int send_file(socket_info_st *s, FILE* fd)
 {
-    int nframes = PACKET_SIZE / WINDOW_SIZE;
+    int nframes = 5; // TODO: THIS SHOULD NOT BE HARDCODED
     int len;
-    Frame* window;
+    int left;
+    Frame* window = NULL;
     int finished = 0;
 
     fseek(fd, 0L, SEEK_END);
     len = ftell(fd);
     fseek(fd, 0L, SEEK_SET);
+    left = len;
 
-    while (!finished)
+    printf("frames: %d  len: %d\n", nframes, len);
+
+    while (left > 0)
     {
         window = update_window(window, fd, nframes, len);
+        if (window == NULL)
+            finished = 1;
         send_window(s, window);
         ack_all(window);
+        left -= 900*5;
     }
 
     free_window(window);

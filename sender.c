@@ -50,7 +50,7 @@ int main(int argc, char *argv[])
         }
     }
 
-    printf("Sucessfully opened the requested file: %s\n", buffer);
+    printf("Sending file %s\n", filename);
 
     send_file(s, fp);
     // memset(buffer, 0, len);
