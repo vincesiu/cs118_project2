@@ -84,14 +84,18 @@ socket_info_st *init_socket(int portno, char *hostname, int who) {
 
 
 
-//please remember to memset the buffer
 void socket_recv(socket_info_st *s, char *buffer, int len) {
+
+    memset(buffer, 0, len);
+
     if (DEBUG_RECEIVE)
         printf("start recv\n");
+
     if (s->who == 1) 
         recvfrom(s->sockfd, buffer, len, 0, (struct sockaddr *) &(s->receiver), &(s->len));
     else
         recvfrom(s->sockfd, buffer, len, 0, (struct sockaddr *) &(s->sender), &(s->len));
+
     if (DEBUG_RECEIVE)
         printf("end recv\n");
 }

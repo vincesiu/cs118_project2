@@ -35,7 +35,6 @@ int main(int argc, char *argv[])
 
      socket_info_st *s = init_socket(atoi(argv[1]), 0, 1);
      
-   	 memset(buffer, 0, len);	//reset memory
      socket_recv(s, buffer, len);
    	 printf("Received hello message : %s\n",buffer);
 
@@ -48,7 +47,6 @@ int main(int argc, char *argv[])
 
 
      
-     memset(buffer, 0, len);
      socket_recv(s, buffer, len);
    	 printf("Here is my ack: %s\n",buffer);
 
