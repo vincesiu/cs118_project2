@@ -3,21 +3,21 @@
 CC=gcc
 CFLAGS=-c -Wall
 
-all: client server
+all: receiver sender
 
-client: client.o
-	$(CC) client.o -o client
+receiver: receiver.o
+	$(CC) receiver.o -o receiver
 
-client.o: client.c
-	$(CC) $(CFLAGS) client.c
+receiver.o: receiver.c
+	$(CC) $(CFLAGS) receiver.c
 
-server: server.o
-	$(CC) server.o -o server
+sender: sender.o
+	$(CC) sender.o -o sender
 
-server.o: server.c
-	$(CC) $(CFLAGS) server.c
+sender.o: sender.c
+	$(CC) $(CFLAGS) sender.c
   
 clean:
-	rm *o client server
+	rm *o receiver sender
 
 .PHONY: clean
