@@ -23,10 +23,6 @@ int main(int argc, char *argv[])
 {
     int len = 1000;
     char *buffer = malloc(sizeof(char)*len);
-    /*
-    int len = 255;
-    char buffer[256];
-    */
 
     if (argc < 3) {
         fprintf(stderr,"usage %s hostname port\n", argv[0]);
@@ -43,15 +39,18 @@ int main(int argc, char *argv[])
     while (1) {
         socket_recv(s, buffer, len);
         printf("%s\n", buffer);
+        memset(buffer, 0, len);
+        buffer[0] = 'A';
+        buffer[1] = 'C';
+        buffer[2] = 'K';
+        socket_send(s, buffer, 100);
     }
-
-    // memset(buffer,0, len);
-    // buffer[0] = 'a';
-    // buffer[1] = 'c';
-    // buffer[2] = 'k';
-    // socket_send(s, buffer, strlen(buffer));
 
     free_socket(s);
 
     return 0;
 }
+
+typedef struct window {
+
+} window_st;
