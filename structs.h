@@ -8,7 +8,7 @@
 
 #define PACKET_SIZE 1000
 #define HEADER_SIZE 100
-#define DATA_SIZE PACKET_SIZE - HEADER_SIZE
+#define DATA_SIZE   900 
 
 #define WINDOW_SIZE 5
 #define MAX_SEQ_NO  30000

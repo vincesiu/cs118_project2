@@ -14,6 +14,10 @@
 #include "structs.h"
 
 #define RECEIVER_DEBUG 1
+#define RECEIVER_DEBUG_PACKET 0
+#define RECEIVER_DEBUG_WRITE 0
+#define RECEIVER_DEBUG_SLIDE 1
+#define RECEIVER_DEBUG_INIT 0
 
 void error(char *msg)
 {
@@ -40,6 +44,8 @@ typedef struct window {
 //////////////////////////////////////
 
 window_st *window_init(char *filename) {
+    if (RECEIVER_DEBUG_INIT)
+        printf("Intializing window struct\n");
 
     int i;
     window_st *w = malloc(sizeof(window_st)); 
@@ -51,7 +57,12 @@ window_st *window_init(char *filename) {
     for (i = 0; i < WINDOW_SIZE; i++) {
        memset(&(w->frames[i]), 0, sizeof(window_frame_st));
        w->frames[i].sequ_no = i * DATA_SIZE;
+       if (RECEIVER_DEBUG_INIT)
+           printf("Intializing sequ_no: %d\n", w->frames[i].sequ_no);
     }
+
+    if (RECEIVER_DEBUG_INIT)
+        printf("Finished initializing window struct\n");
 
     return w;
 }
@@ -62,6 +73,10 @@ window_st *window_init(char *filename) {
 //if returns 0, then it could not find the frame with the matching sequ_no
 //if returns 1, then it wrote the packet data to the correct frame
 int window_write(window_st *w, int sequ_no, int data_len, char *buffer) {
+
+    if (RECEIVER_DEBUG_WRITE)
+        printf("ENTERING WINDOW_WRITE FUNCTION\n");
+
     int i; 
     window_frame_st *f;
     for (i = 0; i < WINDOW_SIZE; i++) {
@@ -70,9 +85,13 @@ int window_write(window_st *w, int sequ_no, int data_len, char *buffer) {
             memcpy(f->buffer, buffer, sizeof(char) * data_len);
             f->size = data_len;
             f->recv = 1;
+            if (RECEIVER_DEBUG_WRITE)
+                printf("SET THE PACKET DATA IN AN APPROPRIATE WINDOW FRAME\n");
             return 1;
         }
     }
+    if (RECEIVER_DEBUG_WRITE)
+        printf("FAILED TO FIND APPROPRIATE FRAME\n");
     return 0;
 
 }
@@ -87,6 +106,8 @@ int window_slide(window_st *w) {
     if (f->recv == 0)
         return 0;
     else {
+        if (RECEIVER_DEBUG_SLIDE)
+            printf("writing frame with sequence number: %d\n", temp);
         fwrite(&(f->buffer), sizeof(char), f->size, w->fd);
         memset(f, 0, sizeof(window_frame_st));
         f->sequ_no = temp + (WINDOW_SIZE * DATA_SIZE) % MAX_SEQ_NO;
@@ -96,13 +117,14 @@ int window_slide(window_st *w) {
 }
 
 
-
-void window_update(window_st *w, int sequ_no, int data_len, char *buffer) {
+//Returns the sequence number of the closest unreceived packet
+int window_update(window_st *w, int sequ_no, int data_len, char *buffer) {
     
-    if (window_write(w, sequ_no, data_len, buffer))
-        while(window_slide(w));
+    if (window_write(w, sequ_no, data_len, buffer) == 1) {
+        while(window_slide(w) == 1);
+    }
 
-    return;
+    return w->frames[w->idx].sequ_no;
 }
 
 
@@ -110,6 +132,18 @@ void window_update(window_st *w, int sequ_no, int data_len, char *buffer) {
 void window_free(window_st *w) {
     fclose(w->fd);
     free(w);
+}
+
+char *find_data_start(char *buffer) {
+    int i;
+    for (i = 0; i < PACKET_SIZE; i++) {
+        if (buffer[i] == '\n')
+            return buffer + i + 1;
+    }
+
+    my_err("corrupted/incorrectly formatted packet header");
+    return 0;
+
 }
 
 /////////////////////////////////////////////////////
@@ -139,7 +173,8 @@ int main(int argc, char *argv[])
     fgets(buffer,len,stdin);  //read message
     socket_send(s, buffer, strlen(buffer));
     
-    window_st *w = window_init(buffer);
+    //window_st *w = window_init(buffer);
+    window_st *w = window_init("downloaded_file");
 
     while (1) {
         socket_recv(s, buffer, len);
@@ -151,15 +186,21 @@ int main(int argc, char *argv[])
             printf("Header type: %s\n", header_type);
             printf("Sequence number: %d\n", sequ_no);
             printf("Data length: %d\n", data_len);
+            printf("/////////////////////////\n");
         }
 
-        printf("%s\n", buffer);
+        if (RECEIVER_DEBUG_PACKET) 
+            printf("%s", buffer);
+
+        data_buffer = find_data_start(buffer);
+        sequ_no = window_update(w, sequ_no, data_len, data_buffer);
 
         memset(buffer, 0, len);
-        buffer[0] = 'A';
-        buffer[1] = 'C';
-        buffer[2] = 'K';
-        socket_send(s, buffer, 100);
+        sprintf(buffer, "ACK %d OK", sequ_no);
+        socket_send(s, buffer, PACKET_SIZE);
+
+        if (data_len != DATA_SIZE)
+            break;
     }
 
     free_socket(s);
