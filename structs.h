@@ -7,7 +7,10 @@
 #include <strings.h>
 
 #define PACKET_SIZE 1000
-#define WINDOW_SIZE 5000
+#define HEADER_SIZE 100
+#define DATA_SIZE PACKET_SIZE - HEADER_SIZE
+
+#define WINDOW_SIZE 5
 #define MAX_SEQ_NO  30000
 #define TIMEOUT     3000   // in ms
 
