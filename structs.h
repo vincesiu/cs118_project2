@@ -12,7 +12,7 @@
 
 #define WINDOW_SIZE 5
 #define MAX_SEQ_NO  30000
-#define TIMEOUT     3000   // in ms
+#define TIMEOUT     3   // in sec
 
 
 #define DEBUG_RECEIVE 0
@@ -175,6 +175,8 @@ Frame* update_window(Frame* window, FILE* fd, int nframes, int filelen)
             len = filelen - it->seq_no;
             fread(it->data, len, 1, fd);
         }
+        if (len < 0)
+            break;
         it->len = len;
 
         if (len < framesize)
@@ -208,31 +210,53 @@ void free_window(Frame* window)
 // sends everything the window but not already ack'd
 int send_window(socket_info_st *s, Frame* window)
 {
+    int ret = 0;
     char packet[PACKET_SIZE];
     memset(packet, 0, PACKET_SIZE);
     while (window != NULL)
     {
-        if (window->ack == 0) {
+        if (window->ack == 0 && window->sent == 0) {
             // header: SEND <seq_no> <len>
             sprintf(packet, "SEND %d %d\n", window->seq_no, window->len);
             printf("SEND %d %d\n", window->seq_no, window->len);
             strcat(packet, window->data);
 
             socket_send(s, packet, PACKET_SIZE);
+            ret += window->len;
             window->sent = 1;
             memset(packet, 0, PACKET_SIZE);
         }
         window = window->next;
     }
+    return ret;
 }
 
-void ack_all(Frame* window) {
-    if (window != NULL)
+int check_acks(Frame* window)
+{
+    if (window == NULL)
+        return 1;
+    else
     {
-        ack_all(window->next);
-        window->ack = 1;
-	window = window->next;
+        if (window->ack == 1 && check_acks(window->next) == 1)
+            return 1;
+        else
+            return 0;
     }
+}
+
+void process_ack(Frame* window, int seqno, int ok) {
+    if (window == NULL)
+        return;
+    else if (window->seq_no == seqno)
+    {
+        if (ok == 1)
+            window->ack = 1;
+        // TODO: CODE HERE TO PROCESS CORRUPT
+        printf("Ack on %d processed.\n", seqno);
+        return;
+    }
+    else
+        process_ack(window->next, seqno);
 }
 
 int send_file(socket_info_st *s, FILE* fd)
@@ -242,6 +266,9 @@ int send_file(socket_info_st *s, FILE* fd)
     int left;
     Frame* window = NULL;
     int finished = 0;
+    char buffer[PACKET_SIZE];
+    struct timeval initial;
+    struct timeval final;
 
     fseek(fd, 0L, SEEK_END);
     len = ftell(fd);
@@ -250,14 +277,50 @@ int send_file(socket_info_st *s, FILE* fd)
 
     printf("frames: %d  len: %d\n", nframes, len);
 
-    while (left > 0)
+    // TODO: MOVE THIS CODE SOMEWHERE MORE APPROPRIATE
+    struct timeval tout;
+    tout.tv_sec = 1; tout.tv_usec = 0;
+    setsockopt(s->sockfd, SOL_SOCKET, SO_RCVTIMEO, (char *)&tout, sizeof(struct timeval));
+    
+
+    int debugcount = 0;
+
+    while (!finished)
     {
         window = update_window(window, fd, nframes, len);
-        if (window == NULL)
+        left -= send_window(s, window);
+        // ack_all(window);
+
+        // get timeout ready for ACK processing
+        gettimeofday(&initial, NULL);
+        initial.tv_sec += TIMEOUT;
+
+        // this loop processes ACK's
+        while (window->ack == 0) 
+        {
+            int ack_seqno;
+            char ack_status[20];
+            socket_recv(s, buffer, PACKET_SIZE);
+            if (buffer[0] != 0) 
+            {
+                sscanf(buffer, "ACK %d %s", &ack_seqno, ack_status);
+                if (strcmp(ack_status, "OK") == 0)
+                {
+                    process_ack(window, ack_seqno, 1);
+                }
+                // TODO: code to handle corrupt
+            }
+            memset(buffer, 0, PACKET_SIZE);
+
+            // end loop if timeout complete
+            gettimeofday(&final, NULL);
+            // printf("%d %d\n", initial.tv_sec, final.tv_sec);
+            if (final.tv_sec > initial.tv_sec)
+                break;
+        }
+        
+        if (left < 0 && (check_acks(window) == 1))
             finished = 1;
-        send_window(s, window);
-        ack_all(window);
-        left -= 900*5;
     }
 
     free_window(window);

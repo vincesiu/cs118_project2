@@ -196,7 +196,8 @@ int main(int argc, char *argv[])
         sequ_no = window_update(w, sequ_no, data_len, data_buffer);
 
         memset(buffer, 0, len);
-        sprintf(buffer, "ACK %d OK", sequ_no);
+        // julien left this here
+        sprintf(buffer, "ACK %d OK", (sequ_no - 900));
         socket_send(s, buffer, PACKET_SIZE);
 
         if (data_len != DATA_SIZE)
