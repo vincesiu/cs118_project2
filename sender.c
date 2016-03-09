@@ -22,7 +22,6 @@ void err(char *msg)
 
 int send_file(socket_info_st *s, FILE* fd)
 {
-    int nframes = WINDOW_SIZE / PACKET_SIZE; // TODO: THIS SHOULD NOT BE HARDCODED
     int len;
     int left;
     Frame* window = NULL;
@@ -36,14 +35,14 @@ int send_file(socket_info_st *s, FILE* fd)
     fseek(fd, 0L, SEEK_SET);
     left = len;
 
-    printf("frames: %d  len: %d\n", nframes, len);
+    printf("frames: %d  len: %d\n", WINDOW_LEN, len);
     
     while (1)
     {
         if (window == NULL && left <= 0)
             break;
         
-        window = update_window(window, fd, nframes, len);
+        window = update_window(window, fd, len, left);
         // print_window(window);
         left -= send_window(s, window);
 
@@ -51,8 +50,8 @@ int send_file(socket_info_st *s, FILE* fd)
         gettimeofday(&initial, NULL);
         initial.tv_sec += PACKET_LOSS_TIMEOUT;
 
-        // this loop processes ACK's
-        while (window != NULL && window->ack == 0) 
+        // this loop processes ACK's, looks for corrupt and lost packets
+        while (window != NULL && window->ack == 0 && window->corrupt == 0) 
         {
             int ack_seqno;
             char ack_status[20];

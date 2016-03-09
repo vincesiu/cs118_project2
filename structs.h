@@ -14,13 +14,13 @@
 #define WINDOW_SIZE 5000
 #define WINDOW_LEN (WINDOW_SIZE / PACKET_SIZE)
 #define MAX_SEQ_NO  30000
-#define PACKET_LOSS_TIMEOUT 3 // in seconds
+#define PACKET_LOSS_TIMEOUT 2 // in seconds
 
 #define ENABLE_SOCKET_TIMEOUT 1
 #define TIMEOUT_S   0 //timeout in seconds
 #define TIMEOUT_US  500000 //timeout in microseconds, 100000 is 100 milliseconds
 
-#define P_CORRUPT 0.4 //percentage of packets which will arrive corrupted, from 0 to 1
+#define P_CORRUPT 0.2 //percentage of packets which will arrive corrupted, from 0 to 1
 #define P_DROPPED 0.0 //percentage of packets which will arrive dropped, from 0 to 1
 //Note that if you actually want all the packets to be corrupted, you need to set P_CORRUPT TO 1.1
 
@@ -119,6 +119,12 @@ void free_socket(socket_info_st *s) {
     free(s);
 }
 
+//////////////////
+//////////////////
+
+// structure to hold the data window for the sender
+// implemented as a linked list
+
 typedef struct frame_node_sender {
     char data[PACKET_SIZE - 100]; // header + data, cannot exceed PACKET_SIZE
     int seq_no; // in bytes, cannot exceed MAX_SEQ_NO
@@ -129,6 +135,9 @@ typedef struct frame_node_sender {
     int lost;
     struct frame_node_sender * next;
 } Frame;
+
+//////////////////
+//////////////////
 
 void print_window(Frame* window)
 {
@@ -142,7 +151,7 @@ void print_window(Frame* window)
     }
 }
 
-Frame* update_window(Frame* window, FILE* fd, int nframes, int filelen)
+Frame* update_window(Frame* window, FILE* fd, int filelen, int left)
 {
     int replacecount;
     int framesize = PACKET_SIZE - 100;
@@ -153,14 +162,9 @@ Frame* update_window(Frame* window, FILE* fd, int nframes, int filelen)
 
     // set replacecount, start, it values
     if (window == NULL)
-        replacecount = nframes;
+        replacecount = WINDOW_LEN;
     else
-    {
         replacecount = 0;
-        while (it->next != NULL)
-            it = it->next;
-        start = it->seq_no + framesize;
-    }
 
     // deal with ACK'd frames, FREE them
     // will not run if window is NULL (first run)
@@ -170,6 +174,7 @@ Frame* update_window(Frame* window, FILE* fd, int nframes, int filelen)
         {
             it = new_window;
             new_window = it->next;
+            start = it->seq_no + framesize;
             free(it);
             replacecount++;
         }
@@ -178,7 +183,7 @@ Frame* update_window(Frame* window, FILE* fd, int nframes, int filelen)
     }
 
     // also we need this thing to end if file is complete
-    if (start >= filelen)
+    if (left <= 0)
         return new_window;
 
     // if we need to completely redraw the window
@@ -193,7 +198,7 @@ Frame* update_window(Frame* window, FILE* fd, int nframes, int filelen)
         it = new_window;
         while (it->next != NULL)
             it = it->next;
-
+        start = it->seq_no + framesize;
         it->next = calloc(1, sizeof(Frame));
         it = it->next;
     }
@@ -207,15 +212,15 @@ Frame* update_window(Frame* window, FILE* fd, int nframes, int filelen)
     for (i = 0; i < replacecount; i++)
     {
         size_t len;
-        it->seq_no = start + i*framesize;
-        if ((it->seq_no + framesize) < filelen)
+        it->seq_no = (start + i*framesize) % MAX_SEQ_NO;
+        if (left >= framesize)
         {
             len = framesize;
             fread(it->data, sizeof(it->data), 1, fd);
         }
         else
         {
-            len = filelen - it->seq_no;
+            len = (filelen % MAX_SEQ_NO) - it->seq_no;
             fread(it->data, len, 1, fd);
         }
 
