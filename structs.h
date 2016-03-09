@@ -11,15 +11,14 @@
 #define HEADER_SIZE 100
 #define DATA_SIZE   900 
 
-
 #define WINDOW_SIZE 5000
 #define WINDOW_LEN (WINDOW_SIZE / PACKET_SIZE)
 #define MAX_SEQ_NO  30000
-#define TIMEOUT     3   // in sec
+#define PACKET_LOSS_TIMEOUT 3 // in seconds
 
-#define ENABLE_SOCKET_TIMEOUT 0
+#define ENABLE_SOCKET_TIMEOUT 1
 #define TIMEOUT_S   0 //timeout in seconds
-#define TIMEOUT_US  100000 //timeout in microseconds, 100000 is 100 milliseconds
+#define TIMEOUT_US  500000 //timeout in microseconds, 100000 is 100 milliseconds
 
 #define P_CORRUPT 0.2 //percentage of packets which will arrive corrupted, from 0 to 1
 #define P_DROPPED 0.2 //percentage of packets which will arrive dropped, from 0 to 1
@@ -319,82 +318,4 @@ void process_ack(Frame* window, int seqno, int ok) {
     }
     else
         process_ack(window->next, seqno, ok);
-}
-
-
-int send_file(socket_info_st *s, FILE* fd)
-{
-    int nframes = WINDOW_SIZE / PACKET_SIZE; // TODO: THIS SHOULD NOT BE HARDCODED
-    int len;
-    int left;
-    Frame* window = NULL;
-    Frame* it;
-    char buffer[PACKET_SIZE];
-    struct timeval initial;
-    struct timeval final;
-
-    fseek(fd, 0L, SEEK_END);
-    len = ftell(fd);
-    fseek(fd, 0L, SEEK_SET);
-    left = len;
-
-    printf("frames: %d  len: %d\n", nframes, len);
-
-    // TODO: MOVE THIS CODE SOMEWHERE MORE APPROPRIATE
-    struct timeval tout;
-    tout.tv_sec = 1; tout.tv_usec = 0;
-    setsockopt(s->sockfd, SOL_SOCKET, SO_RCVTIMEO, (char *)&tout, sizeof(struct timeval));
-    
-    while (1)
-    {
-        if (window == NULL && left <= 0)
-            break;
-        
-        window = update_window(window, fd, nframes, len);
-        // print_window(window);
-        left -= send_window(s, window);
-
-        // get timeout ready for ACK processing
-        gettimeofday(&initial, NULL);
-        initial.tv_sec += TIMEOUT;
-
-        // this loop processes ACK's
-        while (window != NULL && window->ack == 0) 
-        {
-            int ack_seqno;
-            char ack_status[20];
-            socket_recv(s, buffer, PACKET_SIZE);
-            if (buffer[0] != 0) 
-            {
-                sscanf(buffer, "ACK %d %s", &ack_seqno, ack_status);
-                if (strcmp(ack_status, "OK") == 0)
-                    process_ack(window, ack_seqno, 1);
-                else
-                    process_ack(window, ack_seqno, 0);
-                // TODO: code to handle corrupt
-            }
-            memset(buffer, 0, PACKET_SIZE);
-
-            // end loop if timeout complete
-            gettimeofday(&final, NULL);
-            // printf("%d %d\n", initial.tv_sec, final.tv_sec);
-            if (final.tv_sec >= initial.tv_sec)
-            {
-                it = window;
-                while (it != NULL)
-                {
-                    if (it->corrupt == 0 && it->ack == 0)
-                        it->lost = 1;
-                    it = it->next;
-                }
-                break;
-            }
-        }
-    }
-
-    free_window(window);
-    if (feof(fd))
-        return 1;
-    else
-        return 0;
 }

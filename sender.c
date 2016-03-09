@@ -20,6 +20,78 @@ void err(char *msg)
     exit(1);
 }
 
+int send_file(socket_info_st *s, FILE* fd)
+{
+    int nframes = WINDOW_SIZE / PACKET_SIZE; // TODO: THIS SHOULD NOT BE HARDCODED
+    int len;
+    int left;
+    Frame* window = NULL;
+    Frame* it;
+    char buffer[PACKET_SIZE];
+    struct timeval initial;
+    struct timeval final;
+
+    fseek(fd, 0L, SEEK_END);
+    len = ftell(fd);
+    fseek(fd, 0L, SEEK_SET);
+    left = len;
+
+    printf("frames: %d  len: %d\n", nframes, len);
+    
+    while (1)
+    {
+        if (window == NULL && left <= 0)
+            break;
+        
+        window = update_window(window, fd, nframes, len);
+        // print_window(window);
+        left -= send_window(s, window);
+
+        // get timeout ready for ACK processing
+        gettimeofday(&initial, NULL);
+        initial.tv_sec += PACKET_LOSS_TIMEOUT;
+
+        // this loop processes ACK's
+        while (window != NULL && window->ack == 0) 
+        {
+            int ack_seqno;
+            char ack_status[20];
+            socket_recv(s, buffer, PACKET_SIZE);
+            if (buffer[0] != 0) 
+            {
+                sscanf(buffer, "ACK %d %s", &ack_seqno, ack_status);
+                if (strcmp(ack_status, "OK") == 0)
+                    process_ack(window, ack_seqno, 1);
+                else
+                    process_ack(window, ack_seqno, 0);
+                // TODO: code to handle corrupt
+            }
+            memset(buffer, 0, PACKET_SIZE);
+
+            // end loop if timeout complete
+            gettimeofday(&final, NULL);
+            // printf("%d %d\n", initial.tv_sec, final.tv_sec);
+            if (final.tv_sec >= initial.tv_sec)
+            {
+                it = window;
+                while (it != NULL)
+                {
+                    if (it->corrupt == 0 && it->ack == 0)
+                        it->lost = 1;
+                    it = it->next;
+                }
+                break;
+            }
+        }
+    }
+
+    free_window(window);
+    if (feof(fd))
+        return 1;
+    else
+        return 0;
+}
+
 int main(int argc, char *argv[])
 {
     //int len = 200;
@@ -33,9 +105,6 @@ int main(int argc, char *argv[])
     err("no port provided");
 
     socket_info_st *s = init_socket(atoi(argv[1]), 0, 1);
-
-    // socket_recv(s, buffer, len);
-    // FILE* fp = fopen(buffer,"r");
 
     while (fp == NULL)
     {
@@ -51,20 +120,7 @@ int main(int argc, char *argv[])
     printf("Sending file %s\n", filename);
 
     send_file(s, fp);
-    // memset(buffer, 0, len);
-    // buffer[0] = 'd';
-    // buffer[1] = 'a';
-    // buffer[2] = 'a';
-    // buffer[3] = 'g';
-    // socket_send(s, buffer, strlen(buffer));
-
-
-
-    // socket_recv(s, buffer, len);
-    // printf("Here is my ack: %s\n",buffer);
-
-
-
+    
     free_socket(s); 
        
     return 0; 
