@@ -14,6 +14,8 @@
 #define MAX_SEQ_NO  30000
 #define TIMEOUT     3   // in sec
 
+#define P_CORRUPT 0.5 //percentage of packets which will arrive corrupted
+#define P_DROPPED 0.0 //percentage of packets which will arrive dropped
 
 #define DEBUG_RECEIVE 0
 

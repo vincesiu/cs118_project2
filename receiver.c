@@ -10,6 +10,7 @@
 #include <strings.h>
 #include <string.h>
 #include <unistd.h>
+#include <time.h>
 
 #include "structs.h"
 
@@ -151,6 +152,7 @@ char *find_data_start(char *buffer) {
 
 int main(int argc, char *argv[])
 {
+    srand(time(NULL));
     int len = 1000;
     char *buffer = malloc(sizeof(char)*len);
 
@@ -160,6 +162,8 @@ int main(int argc, char *argv[])
     int sequ_no;
     int data_len;
 
+    double p_corr = 0.0;
+    double p_drop = 0.0;
 
     if (argc < 3) {
         fprintf(stderr,"usage %s hostname port\n", argv[0]);
@@ -192,16 +196,35 @@ int main(int argc, char *argv[])
         if (RECEIVER_DEBUG_PACKET) 
             printf("%s", buffer);
 
-        data_buffer = find_data_start(buffer);
-        sequ_no = window_update(w, sequ_no, data_len, data_buffer);
+        p_corr = (rand() % 10) / 10.0;
+        p_drop = (rand() % 10) / 10.0;
+        if (RECEIVER_DEBUG) {
+          printf("corruped packet probability and threshold are: %f %f\n", p_corr, P_CORRUPT);
+          printf("dropped packet probability and threshold:%f %f\n", p_drop, P_DROPPED);
+        }
 
-        memset(buffer, 0, len);
-        // julien left this here
-        sprintf(buffer, "ACK %d OK", (sequ_no - 900));
-        socket_send(s, buffer, PACKET_SIZE);
 
-        if (data_len != DATA_SIZE)
-            break;
+        if ((p_drop >= P_DROPPED) && (p_corr >= P_CORRUPT)) {
+            sequ_no = w->frames[w->idx].sequ_no;
+            printf("Sequence number: %d\n", sequ_no);
+            data_buffer = find_data_start(buffer);
+            window_update(w, sequ_no, data_len, data_buffer);
+            //sequ_no = window_update(w, sequ_no, data_len, data_buffer);
+
+            memset(buffer, 0, len);
+            // julien left this here
+            //sprintf(buffer, "ACK %d OK", (sequ_no - 900));
+            sprintf(buffer, "ACK %d OK", sequ_no);
+            socket_send(s, buffer, PACKET_SIZE);
+            if (data_len != DATA_SIZE)
+                break;
+        }
+        else if (p_corr < P_CORRUPT) {
+            memset(buffer, 0, len);
+            sprintf(buffer, "ACK %d CORRUPT", sequ_no);
+            socket_send(s, buffer, PACKET_SIZE);
+        }
+
     }
 
     free_socket(s);
