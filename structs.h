@@ -184,7 +184,6 @@ Frame* update_window(Frame* window, FILE* fd, int nframes, int filelen)
     {
         size_t len;
         it->seq_no = start + i*framesize;
-        printf("%i\n", it->seq_no);
         if ((it->seq_no + framesize) < filelen)
         {
             len = framesize;
@@ -271,7 +270,7 @@ void process_ack(Frame* window, int seqno, int ok) {
         if (ok == 1)
             window->ack = 1;
         // TODO: CODE HERE TO PROCESS CORRUPT
-        printf("Ack on %d processed.\n", seqno);
+        printf("ACK %d processed.\n", seqno);
         return;
     }
     else
@@ -283,7 +282,6 @@ int send_file(socket_info_st *s, FILE* fd)
     int nframes = 5; // TODO: THIS SHOULD NOT BE HARDCODED
     int len;
     int left;
-    int finished = 0;
     Frame* window = NULL;
     char buffer[PACKET_SIZE];
     struct timeval initial;
@@ -301,16 +299,13 @@ int send_file(socket_info_st *s, FILE* fd)
     tout.tv_sec = 1; tout.tv_usec = 0;
     setsockopt(s->sockfd, SOL_SOCKET, SO_RCVTIMEO, (char *)&tout, sizeof(struct timeval));
     
-
-    int debugcount = 0;
-
     while (1)
     {
         if (window == NULL && left <= 0)
             break;
-        else
-            window = update_window(window, fd, nframes, len);
-        print_window(window);
+        
+        window = update_window(window, fd, nframes, len);
+        // print_window(window);
         left -= send_window(s, window);
 
         // get timeout ready for ACK processing
