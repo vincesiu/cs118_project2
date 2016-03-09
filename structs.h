@@ -160,6 +160,8 @@ Frame* update_window(Frame* window, FILE* fd, int nframes, int filelen)
         return window;
     }
 
+
+    // also we need this thing to end if  
     // allocate and fill new frames
     for (i = 0; i < replacecount; i++)
     {
@@ -175,8 +177,7 @@ Frame* update_window(Frame* window, FILE* fd, int nframes, int filelen)
             len = filelen - it->seq_no;
             fread(it->data, len, 1, fd);
         }
-        if (len < 0)
-            break;
+
         it->len = len;
 
         if (len < framesize)
@@ -256,7 +257,7 @@ void process_ack(Frame* window, int seqno, int ok) {
         return;
     }
     else
-        process_ack(window->next, seqno);
+        process_ack(window->next, seqno, ok);
 }
 
 int send_file(socket_info_st *s, FILE* fd)
@@ -264,8 +265,8 @@ int send_file(socket_info_st *s, FILE* fd)
     int nframes = 5; // TODO: THIS SHOULD NOT BE HARDCODED
     int len;
     int left;
-    Frame* window = NULL;
     int finished = 0;
+    Frame* window = NULL;
     char buffer[PACKET_SIZE];
     struct timeval initial;
     struct timeval final;
@@ -296,7 +297,7 @@ int send_file(socket_info_st *s, FILE* fd)
         initial.tv_sec += TIMEOUT;
 
         // this loop processes ACK's
-        while (window->ack == 0) 
+        while (window != NULL && window->ack == 0) 
         {
             int ack_seqno;
             char ack_status[20];
@@ -319,8 +320,7 @@ int send_file(socket_info_st *s, FILE* fd)
                 break;
         }
         
-        if (left < 0 && (check_acks(window) == 1))
-            finished = 1;
+        
     }
 
     free_window(window);
