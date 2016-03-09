@@ -1,6 +1,7 @@
 #include <sys/time.h>
-#include <stdio.h>
+#include <sys/socket.h>
 #include <sys/types.h>
+#include <stdio.h>
 #include <netinet/in.h>
 #include <netdb.h>
 #include <stdlib.h>
@@ -14,9 +15,14 @@
 #define MAX_SEQ_NO  30000
 #define TIMEOUT     3   // in sec
 
-#define P_CORRUPT 0.1 //percentage of packets which will arrive corrupted, from 0 to 1
+#define ENABLE_SOCKET_TIMEOUT 0
+#define TIMEOUT_S   0 //timeout in seconds
+#define TIMEOUT_US  100000 //timeout in microseconds, 100000 is 100 milliseconds
+
+#define P_CORRUPT 0.0 //percentage of packets which will arrive corrupted, from 0 to 1
 #define P_DROPPED 0.0 //percentage of packets which will arrive dropped, from 0 to 1
 //Note that if you actually want all the packets to be corrupted, you need to set P_CORRUPT TO 1.1
+
 
 #define DEBUG_RECEIVE 0
 
@@ -39,6 +45,10 @@ void my_err(char *msg) {
 //  0: reciever, this means we will setup the ports to initially connect to a server
 //  1: sender, this means we will bind the ports
 socket_info_st *init_socket(int portno, char *hostname, int who) {
+    struct timeval tv;
+    tv.tv_sec = TIMEOUT_S;
+    tv.tv_usec = TIMEOUT_US;
+
     socket_info_st *ret = malloc(sizeof(socket_info_st));
 
     if((ret->sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0)
@@ -54,8 +64,14 @@ socket_info_st *init_socket(int portno, char *hostname, int who) {
         ret->sender.sin_addr.s_addr = INADDR_ANY;
         ret->sender.sin_port = htons(portno);
 
+        if (ENABLE_SOCKET_TIMEOUT) {
+            if(setsockopt(ret->sockfd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv)) < 0)
+                my_err("could not set timeout value for sender socket");
+        }
+
         if (bind(ret->sockfd, (struct sockaddr *) &ret->sender, ret->len) < 0)
             my_err("binding failed");
+
     }
     else if (who == 0) {
         struct hostent *server = gethostbyname(hostname);
