@@ -388,7 +388,6 @@ int send_file(socket_info_st *s, FILE* fd)
                 break;
             }
         }
-        printf("hi hello\n");
     }
 
     free_window(window);
