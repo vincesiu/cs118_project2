@@ -14,7 +14,7 @@
 #define MAX_SEQ_NO  30000
 #define TIMEOUT     3   // in sec
 
-#define P_CORRUPT 0.0 //percentage of packets which will arrive corrupted, from 0 to 1
+#define P_CORRUPT 0.1 //percentage of packets which will arrive corrupted, from 0 to 1
 #define P_DROPPED 0.0 //percentage of packets which will arrive dropped, from 0 to 1
 //Note that if you actually want all the packets to be corrupted, you need to set P_CORRUPT TO 1.1
 

@@ -215,8 +215,8 @@ int main(int argc, char *argv[])
         }
 
 
-        p_corr = (rand() % 10) / 10.0;
-        p_drop = (rand() % 10) / 10.0;
+        p_corr = (rand() % 1000) / 1000.0;
+        p_drop = (rand() % 1000) / 1000.0;
 
         if (RECEIVER_DEBUG) {
           printf("corruped packet probability and threshold are: %f %f\n", p_corr, P_CORRUPT);
@@ -231,7 +231,6 @@ int main(int argc, char *argv[])
                 sequ_no = window_update(w, sequ_no, data_len, data_buffer);
             }
             else {
-                sequ_no = w->frames[w->idx].sequ_no;
                 window_update(w, sequ_no, data_len, data_buffer);
             }
 
