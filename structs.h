@@ -108,6 +108,8 @@ typedef struct frame_node_sender {
     int len;
     int sent;
     int ack;  // 0 if ack not yet received, 1 if ack received
+    int corrupt;
+    int lost;
     struct frame_node_sender * next;
 } Frame;
 
@@ -233,19 +235,32 @@ int send_window(socket_info_st *s, Frame* window)
 {
     int ret = 0;
     char packet[PACKET_SIZE];
-    memset(packet, 0, PACKET_SIZE);
     while (window != NULL)
     {
+        memset(packet, 0, PACKET_SIZE);
         if (window->ack == 0 && window->sent == 0) {
             // header: SEND <seq_no> <len>
             sprintf(packet, "SEND %d %d\n", window->seq_no, window->len);
             printf("SEND %d %d\n", window->seq_no, window->len);
             strcat(packet, window->data);
-
             socket_send(s, packet, PACKET_SIZE);
             ret += window->len;
             window->sent = 1;
-            memset(packet, 0, PACKET_SIZE);
+            
+        }
+        else if (window->lost == 1) {
+            sprintf(packet, "RESEND %d %d\n", window->seq_no, window->len);
+            printf("RESEND %d %d due to packet loss.\n", window->seq_no, window->len);
+            strcat(packet, window->data);
+            socket_send(s, packet, PACKET_SIZE);
+            window->lost = 0;
+        }
+        else if (window->corrupt == 1) {
+            sprintf(packet, "RESEND %d %d\n", window->seq_no, window->len);
+            printf("RESEND %d %d due to corrupt packet.\n", window->seq_no, window->len);
+            strcat(packet, window->data);
+            socket_send(s, packet, PACKET_SIZE);
+            window->corrupt = 0;
         }
         window = window->next;
     }
@@ -271,21 +286,29 @@ void process_ack(Frame* window, int seqno, int ok) {
     else if (window->seq_no == seqno)
     {
         if (ok == 1)
+        {
             window->ack = 1;
-        // TODO: CODE HERE TO PROCESS CORRUPT
-        printf("ACK %d processed.\n", seqno);
+            printf("ACK %d ok.\n", seqno);
+        }
+        else
+        {
+            window->corrupt = 1;
+            printf("ACK %d corrupt.\n", seqno);
+        }
         return;
     }
     else
         process_ack(window->next, seqno, ok);
 }
 
+
 int send_file(socket_info_st *s, FILE* fd)
 {
-    int nframes = 5; // TODO: THIS SHOULD NOT BE HARDCODED
+    int nframes = WINDOW_SIZE; // TODO: THIS SHOULD NOT BE HARDCODED
     int len;
     int left;
     Frame* window = NULL;
+    Frame* it;
     char buffer[PACKET_SIZE];
     struct timeval initial;
     struct timeval final;
@@ -308,7 +331,7 @@ int send_file(socket_info_st *s, FILE* fd)
             break;
         
         window = update_window(window, fd, nframes, len);
-        // print_window(window);
+        print_window(window);
         left -= send_window(s, window);
 
         // get timeout ready for ACK processing
@@ -325,9 +348,9 @@ int send_file(socket_info_st *s, FILE* fd)
             {
                 sscanf(buffer, "ACK %d %s", &ack_seqno, ack_status);
                 if (strcmp(ack_status, "OK") == 0)
-                {
                     process_ack(window, ack_seqno, 1);
-                }
+                else
+                    process_ack(window, ack_seqno, 0);
                 // TODO: code to handle corrupt
             }
             memset(buffer, 0, PACKET_SIZE);
@@ -335,8 +358,17 @@ int send_file(socket_info_st *s, FILE* fd)
             // end loop if timeout complete
             gettimeofday(&final, NULL);
             // printf("%d %d\n", initial.tv_sec, final.tv_sec);
-            if (final.tv_sec > initial.tv_sec)
+            if (final.tv_sec >= initial.tv_sec)
+            {
+                it = window;
+                while (it != NULL)
+                {
+                    if (it->corrupt == 0 && it->ack == 0)
+                        it->lost = 1;
+                    it = it->next;
+                }
                 break;
+            }
         }
     }
 
