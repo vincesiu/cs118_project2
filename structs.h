@@ -22,7 +22,7 @@
 #define TIMEOUT_US  100000 //timeout in microseconds, 100000 is 100 milliseconds
 
 #define P_CORRUPT 0.2 //percentage of packets which will arrive corrupted, from 0 to 1
-#define P_DROPPED 0.0 //percentage of packets which will arrive dropped, from 0 to 1
+#define P_DROPPED 0.2 //percentage of packets which will arrive dropped, from 0 to 1
 //Note that if you actually want all the packets to be corrupted, you need to set P_CORRUPT TO 1.1
 
 
@@ -324,7 +324,7 @@ void process_ack(Frame* window, int seqno, int ok) {
 
 int send_file(socket_info_st *s, FILE* fd)
 {
-    int nframes = WINDOW_SIZE; // TODO: THIS SHOULD NOT BE HARDCODED
+    int nframes = WINDOW_SIZE / PACKET_SIZE; // TODO: THIS SHOULD NOT BE HARDCODED
     int len;
     int left;
     Frame* window = NULL;
