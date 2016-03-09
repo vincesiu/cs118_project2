@@ -14,11 +14,17 @@
 
 #include "structs.h"
 
-#define RECEIVER_DEBUG 1
+#define HOTFIX_FOR_JULIEN 0
+//0 == ACK gives the received sequence number
+//1 == ACK gives the earliest sequence number the receiver still needs
+
+#define RECEIVER_DEBUG 0
 #define RECEIVER_DEBUG_PACKET 0
 #define RECEIVER_DEBUG_WRITE 0
-#define RECEIVER_DEBUG_SLIDE 1
+#define RECEIVER_DEBUG_SLIDE 0
 #define RECEIVER_DEBUG_INIT 0
+
+#define RECEIVER_PRINT 1
 
 void error(char *msg)
 {
@@ -172,7 +178,7 @@ int main(int argc, char *argv[])
     
     socket_info_st *s = init_socket(atoi(argv[2]), argv[1], 0);
      
-    printf("Please enter the desired filename: ");
+    printf("RECEIVER: Please enter the desired filename: ");
     memset(buffer,0, len);
     fgets(buffer,len,stdin);  //read message
     socket_send(s, buffer, strlen(buffer));
@@ -196,8 +202,22 @@ int main(int argc, char *argv[])
         if (RECEIVER_DEBUG_PACKET) 
             printf("%s", buffer);
 
+        if (RECEIVER_PRINT) {
+            if (strcmp(header_type, "SEND") == 0)
+                printf("RECEIVER: received data packet with sequence number %d\n", sequ_no);
+            else if (strcmp(header_type, "RESEND") == 0)
+                printf("RECEIVER: received resend packet with sequence number %d\n", sequ_no);
+            else {
+                printf("RECEIVER: received a corrupted packet\n");
+                continue;
+            }
+
+        }
+
+
         p_corr = (rand() % 10) / 10.0;
         p_drop = (rand() % 10) / 10.0;
+
         if (RECEIVER_DEBUG) {
           printf("corruped packet probability and threshold are: %f %f\n", p_corr, P_CORRUPT);
           printf("dropped packet probability and threshold:%f %f\n", p_drop, P_DROPPED);
@@ -205,21 +225,31 @@ int main(int argc, char *argv[])
 
 
         if ((p_drop >= P_DROPPED) && (p_corr >= P_CORRUPT)) {
-            sequ_no = w->frames[w->idx].sequ_no;
-            printf("Sequence number: %d\n", sequ_no);
             data_buffer = find_data_start(buffer);
-            window_update(w, sequ_no, data_len, data_buffer);
-            //sequ_no = window_update(w, sequ_no, data_len, data_buffer);
 
+            if (HOTFIX_FOR_JULIEN) {
+                sequ_no = window_update(w, sequ_no, data_len, data_buffer);
+            }
+            else {
+                sequ_no = w->frames[w->idx].sequ_no;
+                window_update(w, sequ_no, data_len, data_buffer);
+            }
+
+
+            if (RECEIVER_PRINT) {
+                printf("RECEIVER: sending ACK packet indicating most recently received sequence number: %d\n", sequ_no);
+            }
             memset(buffer, 0, len);
-            // julien left this here
-            //sprintf(buffer, "ACK %d OK", (sequ_no - 900));
             sprintf(buffer, "ACK %d OK", sequ_no);
             socket_send(s, buffer, PACKET_SIZE);
+
             if (data_len != DATA_SIZE)
                 break;
         }
         else if (p_corr < P_CORRUPT) {
+            if (RECEIVER_PRINT) {
+                printf("RECEIVER: received a (pseudorandomly chosen) corrupted packet\n");
+            }
             memset(buffer, 0, len);
             sprintf(buffer, "ACK %d CORRUPT", sequ_no);
             socket_send(s, buffer, PACKET_SIZE);
