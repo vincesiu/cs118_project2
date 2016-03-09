@@ -44,7 +44,7 @@ typedef struct window_frame {
 typedef struct window {
   int idx;
   FILE *fd;
-  window_frame_st frames[WINDOW_SIZE]; 
+  window_frame_st frames[WINDOW_LEN]; 
 } window_st;
 
 //////////////////////////////////////
@@ -61,7 +61,7 @@ window_st *window_init(char *filename) {
 
     w->fd = fopen(filename, "w");
 
-    for (i = 0; i < WINDOW_SIZE; i++) {
+    for (i = 0; i < WINDOW_LEN; i++) {
        memset(&(w->frames[i]), 0, sizeof(window_frame_st));
        w->frames[i].sequ_no = i * DATA_SIZE;
        if (RECEIVER_DEBUG_INIT)
@@ -86,9 +86,9 @@ int window_write(window_st *w, int sequ_no, int data_len, char *buffer) {
 
     int i; 
     window_frame_st *f;
-    for (i = 0; i < WINDOW_SIZE; i++) {
-        if (w->frames[(i + w->idx) % WINDOW_SIZE].sequ_no == sequ_no) {
-            f = &(w->frames[(i + w->idx) % WINDOW_SIZE]);
+    for (i = 0; i < WINDOW_LEN; i++) {
+        if (w->frames[(i + w->idx) % WINDOW_LEN].sequ_no == sequ_no) {
+            f = &(w->frames[(i + w->idx) % WINDOW_LEN]);
             memcpy(f->buffer, buffer, sizeof(char) * data_len);
             f->size = data_len;
             f->recv = 1;
@@ -117,8 +117,8 @@ int window_slide(window_st *w) {
             printf("writing frame with sequence number: %d\n", temp);
         fwrite(&(f->buffer), sizeof(char), f->size, w->fd);
         memset(f, 0, sizeof(window_frame_st));
-        f->sequ_no = temp + (WINDOW_SIZE * DATA_SIZE) % MAX_SEQ_NO;
-        w->idx = (w->idx + 1) % WINDOW_SIZE;
+        f->sequ_no = temp + (WINDOW_LEN * DATA_SIZE) % MAX_SEQ_NO;
+        w->idx = (w->idx + 1) % WINDOW_LEN;
         return 1;
     }
 }
