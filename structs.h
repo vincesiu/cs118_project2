@@ -20,8 +20,8 @@
 #define TIMEOUT_S   0 //timeout in seconds
 #define TIMEOUT_US  500000 //timeout in microseconds, 100000 is 100 milliseconds
 
-#define P_CORRUPT 0.2 //percentage of packets which will arrive corrupted, from 0 to 1
-#define P_DROPPED 0.2 //percentage of packets which will arrive dropped, from 0 to 1
+#define P_CORRUPT 0.4 //percentage of packets which will arrive corrupted, from 0 to 1
+#define P_DROPPED 0.0 //percentage of packets which will arrive dropped, from 0 to 1
 //Note that if you actually want all the packets to be corrupted, you need to set P_CORRUPT TO 1.1
 
 
@@ -318,4 +318,17 @@ void process_ack(Frame* window, int seqno, int ok) {
     }
     else
         process_ack(window->next, seqno, ok);
+}
+
+int window_all_done(Frame* w)
+{
+    if (w == NULL)
+        return 1;
+    else
+    {
+        if ((w->ack == 1 || w->corrupt == 1) && window_all_done(w->next) == 1)
+            return 1;
+        else
+            return 0;
+    }
 }

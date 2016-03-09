@@ -68,6 +68,10 @@ int send_file(socket_info_st *s, FILE* fd)
             }
             memset(buffer, 0, PACKET_SIZE);
 
+            // no reason to keep looping if all frames in window are ACK'd
+            if (window_all_done(window))
+                break;
+
             // end loop if timeout complete
             gettimeofday(&final, NULL);
             // printf("%d %d\n", initial.tv_sec, final.tv_sec);
