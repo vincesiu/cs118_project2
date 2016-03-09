@@ -42,9 +42,10 @@ typedef struct window_frame {
 } window_frame_st;
 
 typedef struct window {
-  int idx;
-  FILE *fd;
-  window_frame_st frames[WINDOW_LEN]; 
+    int idx;
+    FILE *fd;
+    int last_len_written; //gg too lazy to refactor this, basically if this is not 900, AND the window_clear function returns true, then I'm done
+    window_frame_st frames[WINDOW_LEN]; 
 } window_st;
 
 //////////////////////////////////////
@@ -61,12 +62,17 @@ window_st *window_init(char *filename) {
 
     w->fd = fopen(filename, "w");
 
+    w->last_len_written = DATA_SIZE;
+
     for (i = 0; i < WINDOW_LEN; i++) {
        memset(&(w->frames[i]), 0, sizeof(window_frame_st));
        w->frames[i].sequ_no = i * DATA_SIZE;
        if (RECEIVER_DEBUG_INIT)
            printf("Intializing sequ_no: %d\n", w->frames[i].sequ_no);
     }
+
+    if (RECEIVER_DEBUG_INIT)
+        printf("last len written initialized as: %d\n", w->last_len_written);
 
     if (RECEIVER_DEBUG_INIT)
         printf("Finished initializing window struct\n");
@@ -76,9 +82,20 @@ window_st *window_init(char *filename) {
 
 
 
+//0 for not clear
+//1 for clear
+int window_clear(window_st *w) {
+    int i;
+    for (i = 0; i < WINDOW_LEN; i++) {
+        if (w->frames[i].recv == 1)
+            return 0;
+    }
+    return 1;
+}
 
 //if returns 0, then it could not find the frame with the matching sequ_no
 //if returns 1, then it wrote the packet data to the correct frame
+//This writes from packet to window
 int window_write(window_st *w, int sequ_no, int data_len, char *buffer) {
 
     if (RECEIVER_DEBUG_WRITE)
@@ -92,8 +109,10 @@ int window_write(window_st *w, int sequ_no, int data_len, char *buffer) {
             memcpy(f->buffer, buffer, sizeof(char) * data_len);
             f->size = data_len;
             f->recv = 1;
-            if (RECEIVER_DEBUG_WRITE)
+            if (RECEIVER_DEBUG_WRITE) {
+                printf("f->size has value of: %d\n", f->size);
                 printf("SET THE PACKET DATA IN AN APPROPRIATE WINDOW FRAME\n");
+            }
             return 1;
         }
     }
@@ -105,6 +124,7 @@ int window_write(window_st *w, int sequ_no, int data_len, char *buffer) {
 
 //if returns 0, then it could not write another frame to file
 //if returns 1, then it "moved the window forward by one", and wrote a frame to the file
+//This writes from window to disk
 int window_slide(window_st *w) {
     
     window_frame_st *f = &w->frames[w->idx];
@@ -113,25 +133,32 @@ int window_slide(window_st *w) {
     if (f->recv == 0)
         return 0;
     else {
-        if (RECEIVER_DEBUG_SLIDE)
-            printf("writing frame with sequence number: %d\n", temp);
         fwrite(&(f->buffer), sizeof(char), f->size, w->fd);
+        if (w->last_len_written == DATA_SIZE)
+            w->last_len_written = f->size;
         memset(f, 0, sizeof(window_frame_st));
         f->sequ_no = temp + (WINDOW_LEN * DATA_SIZE) % MAX_SEQ_NO;
         w->idx = (w->idx + 1) % WINDOW_LEN;
+        if (RECEIVER_DEBUG_SLIDE) {
+            printf("writing frame with sequence number: %d\n", temp);
+            printf("last len written updated to: %d\n", w->last_len_written);
+            printf("f->size is %d\n", f->size);
+        }
         return 1;
     }
 }
 
 
-//Returns the sequence number of the closest unreceived packet
+//Returns 1 if the given sequence number could be written
+//else 0
 int window_update(window_st *w, int sequ_no, int data_len, char *buffer) {
-    
-    if (window_write(w, sequ_no, data_len, buffer) == 1) {
+    int temp = window_write(w, sequ_no, data_len, buffer);
+
+    if (temp == 1) {
         while(window_slide(w) == 1);
     }
 
-    return w->frames[w->idx].sequ_no;
+    return temp;
 }
 
 
@@ -219,31 +246,34 @@ int main(int argc, char *argv[])
         p_drop = (rand() % 1000) / 1000.0;
 
         if (RECEIVER_DEBUG) {
-          printf("corruped packet probability and threshold are: %f %f\n", p_corr, P_CORRUPT);
-          printf("dropped packet probability and threshold:%f %f\n", p_drop, P_DROPPED);
+            printf("corruped packet probability and threshold are: %f %f\n", p_corr, P_CORRUPT);
+            printf("dropped packet probability and threshold:%f %f\n", p_drop, P_DROPPED);
         }
 
 
         if ((p_drop >= P_DROPPED) && (p_corr >= P_CORRUPT)) {
             data_buffer = find_data_start(buffer);
 
-            if (HOTFIX_FOR_JULIEN) {
-                sequ_no = window_update(w, sequ_no, data_len, data_buffer);
-            }
-            else {
-                window_update(w, sequ_no, data_len, data_buffer);
-            }
+            if (window_update(w, sequ_no, data_len, data_buffer) == 1) {
+                if (HOTFIX_FOR_JULIEN) {
+                    sequ_no = w->frames[w->idx].sequ_no;
+                }
 
 
-            if (RECEIVER_PRINT) {
-                printf("RECEIVER: sending ACK packet indicating most recently received sequence number: %d\n", sequ_no);
-            }
-            memset(buffer, 0, len);
-            sprintf(buffer, "ACK %d OK", sequ_no);
-            socket_send(s, buffer, PACKET_SIZE);
+                if (RECEIVER_PRINT) {
+                    printf("RECEIVER: sending ACK packet indicating most recently received sequence number: %d\n", sequ_no);
+                }
+                memset(buffer, 0, len);
+                sprintf(buffer, "ACK %d OK", sequ_no);
+                socket_send(s, buffer, PACKET_SIZE);
 
-            if (data_len != DATA_SIZE)
-                break;
+
+                if (RECEIVER_DEBUG) {
+                    printf("Last length written: %d\n", w->last_len_written);
+                }
+                if ((w->last_len_written != DATA_SIZE) && (window_clear(w) == 1))
+                    break;
+            }
         }
         else if (p_corr < P_CORRUPT) {
             if (RECEIVER_PRINT) {
