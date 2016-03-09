@@ -19,7 +19,7 @@
 #define TIMEOUT_S   0 //timeout in seconds
 #define TIMEOUT_US  100000 //timeout in microseconds, 100000 is 100 milliseconds
 
-#define P_CORRUPT 0.0 //percentage of packets which will arrive corrupted, from 0 to 1
+#define P_CORRUPT 0.2 //percentage of packets which will arrive corrupted, from 0 to 1
 #define P_DROPPED 0.0 //percentage of packets which will arrive dropped, from 0 to 1
 //Note that if you actually want all the packets to be corrupted, you need to set P_CORRUPT TO 1.1
 
@@ -189,8 +189,10 @@ Frame* update_window(Frame* window, FILE* fd, int nframes, int filelen)
     }
     else if (replacecount > 0)
     {
+        it = new_window;
         while (it->next != NULL)
             it = it->next;
+
         it->next = calloc(1, sizeof(Frame));
         it = it->next;
     }
@@ -199,7 +201,7 @@ Frame* update_window(Frame* window, FILE* fd, int nframes, int filelen)
     {
         return window;
     }
-
+    
     // allocate and fill new frames
     for (i = 0; i < replacecount; i++)
     {
@@ -347,7 +349,7 @@ int send_file(socket_info_st *s, FILE* fd)
             break;
         
         window = update_window(window, fd, nframes, len);
-        print_window(window);
+        // print_window(window);
         left -= send_window(s, window);
 
         // get timeout ready for ACK processing
@@ -386,6 +388,7 @@ int send_file(socket_info_st *s, FILE* fd)
                 break;
             }
         }
+        printf("hi hello\n");
     }
 
     free_window(window);
