@@ -108,19 +108,37 @@ typedef struct frame_node_sender {
     struct frame_node_sender * next;
 } Frame;
 
+void print_window(Frame* window)
+{
+    Frame* it = window;
+    int count = 1;
+    while (it != NULL)
+    {
+        printf("F%i %i %i s=%i a=%i\n", count, it->seq_no, it->len, it->sent, it->ack);
+        it = it->next;
+        count++;
+    }
+}
+
 Frame* update_window(Frame* window, FILE* fd, int nframes, int filelen)
 {
     int replacecount;
     int framesize = PACKET_SIZE - 100;
-    Frame* it;
+    Frame* it = window;
     Frame* new_window = window;
     int i;
     int start = 0; // Start is computed below
 
+    // set replacecount, start, it values
     if (window == NULL)
         replacecount = nframes;
     else
+    {
         replacecount = 0;
+        while (it->next != NULL)
+            it = it->next;
+        start = it->seq_no + framesize;
+    }
 
     // deal with ACK'd frames, FREE them
     // will not run if window is NULL (first run)
@@ -130,13 +148,16 @@ Frame* update_window(Frame* window, FILE* fd, int nframes, int filelen)
         {
             it = new_window;
             new_window = it->next;
-            start = it->seq_no + framesize;
             free(it);
             replacecount++;
         }
         else
             break;
     }
+
+    // also we need this thing to end if file is complete
+    if (start >= filelen)
+        return new_window;
 
     // if we need to completely redraw the window
     // either on first run, or if all sent frames in window were ACK'd
@@ -147,10 +168,8 @@ Frame* update_window(Frame* window, FILE* fd, int nframes, int filelen)
     }
     else if (replacecount > 0)
     {
-        it = new_window;
         while (it->next != NULL)
             it = it->next;
-        start = it->seq_no + framesize;
         it->next = calloc(1, sizeof(Frame));
         it = it->next;
     }
@@ -160,13 +179,12 @@ Frame* update_window(Frame* window, FILE* fd, int nframes, int filelen)
         return window;
     }
 
-
-    // also we need this thing to end if  
     // allocate and fill new frames
     for (i = 0; i < replacecount; i++)
     {
         size_t len;
         it->seq_no = start + i*framesize;
+        printf("%i\n", it->seq_no);
         if ((it->seq_no + framesize) < filelen)
         {
             len = framesize;
@@ -286,11 +304,14 @@ int send_file(socket_info_st *s, FILE* fd)
 
     int debugcount = 0;
 
-    while (!finished)
+    while (1)
     {
-        window = update_window(window, fd, nframes, len);
+        if (window == NULL && left <= 0)
+            break;
+        else
+            window = update_window(window, fd, nframes, len);
+        print_window(window);
         left -= send_window(s, window);
-        // ack_all(window);
 
         // get timeout ready for ACK processing
         gettimeofday(&initial, NULL);
@@ -319,8 +340,6 @@ int send_file(socket_info_st *s, FILE* fd)
             if (final.tv_sec > initial.tv_sec)
                 break;
         }
-        
-        
     }
 
     free_window(window);
