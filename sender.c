@@ -43,7 +43,7 @@ int send_file(socket_info_st *s, FILE* fd)
             break;
         
         window = update_window(window, fd, len, left);
-        print_window(window);
+        // print_window(window);
         left -= send_window(s, window);
 
         // get timeout ready for ACK processing
@@ -100,7 +100,8 @@ int main(int argc, char *argv[])
     //int len = 200;
      //char *buffer = malloc(sizeof(char) * (len + 1));
     int len = 255;
-    char buffer[256];
+    char buffer[PACKET_SIZE];
+    memset(buffer, 0, PACKET_SIZE);
     char filename[256];
     FILE* fp = NULL;
 
@@ -115,11 +116,14 @@ int main(int argc, char *argv[])
         sscanf(buffer, "%s", filename);
         fp = fopen(filename,"r");
         if (fp == NULL) {
-            strcpy(buffer, "ERROR: File not found.\n");
+            strcpy(buffer, "REJECT");
             socket_send(s, buffer, strlen(buffer));
+            memset(buffer, 0, PACKET_SIZE);
         }
     }
-
+    strcpy(buffer, "ACCEPT");
+    socket_send(s, buffer, PACKET_SIZE);
+    
     printf("Sending file %s\n", filename);
 
     send_file(s, fp);
