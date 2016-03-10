@@ -99,7 +99,6 @@ int main(int argc, char *argv[])
 {
     //int len = 200;
      //char *buffer = malloc(sizeof(char) * (len + 1));
-    int len = 255;
     char buffer[PACKET_SIZE];
     memset(buffer, 0, PACKET_SIZE);
     char filename[256];
@@ -112,9 +111,10 @@ int main(int argc, char *argv[])
 
     while (fp == NULL)
     {
-        socket_recv(s, buffer, len);
-        sscanf(buffer, "%s", filename);
+        socket_recv(s, buffer, PACKET_SIZE);
+        sscanf(buffer, "REQUEST %s", filename);
         fp = fopen(filename,"r");
+        memset(buffer, 0, PACKET_SIZE);
         if (fp == NULL) {
             strcpy(buffer, "REJECT");
             socket_send(s, buffer, strlen(buffer));
@@ -123,7 +123,7 @@ int main(int argc, char *argv[])
     }
     strcpy(buffer, "ACCEPT");
     socket_send(s, buffer, PACKET_SIZE);
-    
+
     printf("Sending file %s\n", filename);
 
     send_file(s, fp);
