@@ -236,11 +236,11 @@ int main(int argc, char *argv[])
 
         if (RECEIVER_PRINT) {
             if (strcmp(header_type, "SEND") == 0)
-                printf("RECEIVER: received data packet with sequence number %d\n", sequ_no);
+                printf("RECEIVER: received DATA packet   %d\n", sequ_no);
             else if (strcmp(header_type, "RESEND") == 0)
-                printf("RECEIVER: received resend packet with sequence number %d\n", sequ_no);
+                printf("RECEIVER: received RESEND packet %d\n", sequ_no);
             else {
-                printf("RECEIVER: received a corrupted packet\n");
+                printf("RECEIVER: received corrupted packet\n");
                 continue;
             }
 
@@ -269,7 +269,7 @@ int main(int argc, char *argv[])
                 }
 
                 if (RECEIVER_PRINT) {
-                    printf("RECEIVER: sending ACK packet indicating most recently received sequence number: %d\n", sequ_no);
+                    printf("RECEIVER: sending ACK packet     %d\n", sequ_no);
                 }
 
                 memset(buffer, 0, len);
@@ -286,7 +286,7 @@ int main(int argc, char *argv[])
         }
         else if (p_corr <= P_CORRUPT) {
             if (RECEIVER_PRINT) {
-                printf("RECEIVER: received a (pseudorandomly chosen) corrupted packet\n");
+                printf("RECEIVER: this packet is corrupted \n");
             }
             memset(buffer, 0, len);
             sprintf(buffer, "ACK %d CORRUPT", sequ_no);
