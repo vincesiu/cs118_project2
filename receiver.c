@@ -217,6 +217,19 @@ int main(int argc, char *argv[])
     
     //window_st *w = window_init(buffer);
     window_st *w = window_init("downloaded_file");
+    
+    socket_recv(s, buffer, len);
+    sscanf(buffer, "%s", header_type);
+    if (strcmp(header_type, "REJECT") == 0) {
+        my_err("did not request valid file\n");
+    }
+    else if (strcmp(header_type, "ACCEPT") == 0) {
+        printf("RECEIVER: received ACCEPT packet, initiating data transmission\n");
+    }
+    else {
+        printf("RECEIVER: received corrupted ACCEPT packet, exiting\n");
+        return 1;
+    }
 
     while (1) {
         socket_recv(s, buffer, len);
