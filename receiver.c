@@ -60,7 +60,7 @@ window_st *window_init(char *filename) {
 
     w->idx = 0;
 
-    w->fd = fopen(filename, "w");
+    w->fd = fopen(filename, "wb");
 
     w->last_len_written = DATA_SIZE;
 
@@ -107,6 +107,9 @@ int window_write(window_st *w, int sequ_no, int data_len, char *buffer) {
         if (w->frames[(i + w->idx) % WINDOW_LEN].sequ_no == sequ_no) {
             f = &(w->frames[(i + w->idx) % WINDOW_LEN]);
             memcpy(f->buffer, buffer, sizeof(char) * data_len);
+            if (RECEIVER_DEBUG_WRITE) {
+                printf("BUFFER---------------\n\n%s", buffer);
+            }
             f->size = data_len;
             f->recv = 1;
             if (RECEIVER_DEBUG_WRITE) {
@@ -136,14 +139,16 @@ int window_slide(window_st *w) {
         fwrite(&(f->buffer), sizeof(char), f->size, w->fd);
         if (w->last_len_written == DATA_SIZE)
             w->last_len_written = f->size;
-        memset(f, 0, sizeof(window_frame_st));
-        f->sequ_no = temp + (WINDOW_LEN * DATA_SIZE) % MAX_SEQ_NO;
-        w->idx = (w->idx + 1) % WINDOW_LEN;
         if (RECEIVER_DEBUG_SLIDE) {
             printf("writing frame with sequence number: %d\n", temp);
-            printf("last len written updated to: %d\n", w->last_len_written);
-            printf("f->size is %d\n", f->size);
+            //printf("last len written updated to: %d\n", w->last_len_written);
+            printf("f->size is %d\n", w->last_len_written);
+            //printf("current sequence number is %d\n", w->frames[w->idx].sequ_no);
+            //printf("next sequence number is %d\n", w->frames[(w->idx + 1) % WINDOW_LEN].sequ_no);
         }
+        memset(f, 0, sizeof(window_frame_st));
+        f->sequ_no = (temp + (WINDOW_LEN * DATA_SIZE)) % MAX_SEQ_NO;
+        w->idx = (w->idx + 1) % WINDOW_LEN;
         return 1;
     }
 }
@@ -242,8 +247,8 @@ int main(int argc, char *argv[])
         }
 
 
-        p_corr = (rand() % 1000) / 1000.0;
-        p_drop = (rand() % 1000) / 1000.0;
+        p_corr = ((rand() % 1000) + 1)/ 1000.0;
+        p_drop = ((rand() % 1000) + 1)/ 1000.0;
 
         if (RECEIVER_DEBUG) {
             printf("corruped packet probability and threshold are: %f %f\n", p_corr, P_CORRUPT);
@@ -251,7 +256,7 @@ int main(int argc, char *argv[])
         }
 
 
-        if ((p_drop >= P_DROPPED) && (p_corr >= P_CORRUPT)) {
+        if ((p_drop > P_DROPPED) && (p_corr > P_CORRUPT)) {
             data_buffer = find_data_start(buffer);
 
             if (window_update(w, sequ_no, data_len, data_buffer) == 1) {
@@ -259,10 +264,14 @@ int main(int argc, char *argv[])
                     sequ_no = w->frames[w->idx].sequ_no;
                 }
 
+                if (RECEIVER_DEBUG) {
+                    printf("Buffer-----%s\n\n", buffer);
+                }
 
                 if (RECEIVER_PRINT) {
                     printf("RECEIVER: sending ACK packet indicating most recently received sequence number: %d\n", sequ_no);
                 }
+
                 memset(buffer, 0, len);
                 sprintf(buffer, "ACK %d OK", sequ_no);
                 socket_send(s, buffer, PACKET_SIZE);
@@ -275,7 +284,7 @@ int main(int argc, char *argv[])
                     break;
             }
         }
-        else if (p_corr < P_CORRUPT) {
+        else if (p_corr <= P_CORRUPT) {
             if (RECEIVER_PRINT) {
                 printf("RECEIVER: received a (pseudorandomly chosen) corrupted packet\n");
             }
