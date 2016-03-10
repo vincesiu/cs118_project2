@@ -87,12 +87,12 @@ int send_file(socket_info_st *s, FILE* fd)
             }
         }
     }
+    memset(buffer, 0, PACKET_SIZE);
+    strcpy(buffer, "DONE");
+    socket_send(s, buffer, PACKET_SIZE);
 
     free_window(window);
-    if (feof(fd))
-        return 1;
-    else
-        return 0;
+    return 0;
 }
 
 int main(int argc, char *argv[])
