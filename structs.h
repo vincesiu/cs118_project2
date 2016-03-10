@@ -213,7 +213,8 @@ Frame* update_window(Frame* window, FILE* fd, int filelen, int left)
     {
         size_t len;
         it->seq_no = (start + i*framesize) % MAX_SEQ_NO;
-        if (left >= framesize)
+        left -= framesize;
+        if (left >= 0)
         {
             len = framesize;
             fread(it->data, sizeof(it->data), 1, fd);

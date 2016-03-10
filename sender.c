@@ -43,7 +43,7 @@ int send_file(socket_info_st *s, FILE* fd)
             break;
         
         window = update_window(window, fd, len, left);
-        // print_window(window);
+        print_window(window);
         left -= send_window(s, window);
 
         // get timeout ready for ACK processing
