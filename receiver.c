@@ -195,6 +195,7 @@ int main(int argc, char *argv[])
     char *buffer = malloc(sizeof(char)*len);
 
     char *data_buffer;
+    char file_name[1001];
 
     char header_type[HEADER_SIZE];
     int sequ_no;
@@ -211,19 +212,23 @@ int main(int argc, char *argv[])
     socket_info_st *s = init_socket(atoi(argv[2]), argv[1], 0);
      
     printf("RECEIVER: Please enter the desired filename: ");
+    memset(file_name, 0, len);
     memset(buffer,0, len);
-    fgets(buffer,len,stdin);  //read message
+
+    fgets(file_name, len, stdin);  //read message
+    sprintf(buffer, "REQUEST %s", file_name);
     socket_send(s, buffer, strlen(buffer));
     
     //window_st *w = window_init(buffer);
     window_st *w = window_init("downloaded_file");
     
     socket_recv(s, buffer, len);
-    sscanf(buffer, "%s", header_type);
-    if (strcmp(header_type, "REJECT") == 0) {
+    printf("%s", buffer);
+      
+    if (strcmp(buffer, "REJECT") == 0) {
         my_err("did not request valid file\n");
     }
-    else if (strcmp(header_type, "ACCEPT") == 0) {
+    else if (strcmp(buffer, "ACCEPT") == 0) {
         printf("RECEIVER: received ACCEPT packet, initiating data transmission\n");
     }
     else {
