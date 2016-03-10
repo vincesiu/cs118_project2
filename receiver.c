@@ -157,6 +157,7 @@ int window_slide(window_st *w) {
 //Returns 1 if the given sequence number could be written
 //else 0
 int window_recv(window_st *w, int sequ_no, int data_len, char *buffer) {
+
     int temp = window_update(w, sequ_no, data_len, buffer);
 
     if (temp == 1) {
@@ -200,6 +201,8 @@ int main(int argc, char *argv[])
     char header_type[HEADER_SIZE];
     int sequ_no;
     int data_len;
+    int done = 0;
+
 
     double p_corr = 0.0;
     double p_drop = 0.0;
@@ -257,6 +260,13 @@ int main(int argc, char *argv[])
                 printf("RECEIVER: received DATA packet   %d\n", sequ_no);
             else if (strcmp(header_type, "RESEND") == 0)
                 printf("RECEIVER: received RESEND packet %d\n", sequ_no);
+            else if (strcmp(header_type, "DONE") == 0) {
+                done = 1;
+                if ((done == 1) && (window_clear(w) == 1))
+                    break;
+                else
+                    continue;
+            }
             else {
                 printf("RECEIVER: received corrupted packet\n");
                 continue;
@@ -298,7 +308,8 @@ int main(int argc, char *argv[])
                 if (RECEIVER_DEBUG) {
                     printf("Last length written: %d\n", w->last_len_written);
                 }
-                if ((w->last_len_written != DATA_SIZE) && (window_clear(w) == 1))
+
+                if ((done == 1) && (window_clear(w) == 1))
                     break;
             }
         }
